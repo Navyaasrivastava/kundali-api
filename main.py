@@ -1,20 +1,20 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import random
 
-app = FastAPI(title="NUMs + Kundali API", version="1.0")
+app = FastAPI(title="NUMs + Kundali API")
 
-# ✅ CORS ENABLED
+# ✅ CORS (very important for frontend)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # change later to frontend domain
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------- ZODIAC FUNCTION ----------
+# ---------- ZODIAC ----------
 def get_zodiac(day, month):
     if (month == 3 and day >= 21) or (month == 4 and day <= 19):
         return "Aries ♈"
@@ -41,88 +41,68 @@ def get_zodiac(day, month):
     else:
         return "Pisces ♓"
 
-traits_en = [
+traits = [
     "Naturally charming personality",
     "Strong and determined mindset",
     "Kind-hearted and caring nature",
     "Confident and fearless attitude",
-    "Intelligent decision maker",
     "Positive and inspiring presence",
     "Goal-oriented and focused",
     "Loyal and trustworthy",
-    "Attractive aura and energy",
-    "Calm and balanced personality"
 ]
 
-quotes_en = [
+quotes = [
     "You are born to shine brighter than others.",
     "Your energy attracts success naturally.",
     "Confidence is your hidden superpower.",
-    "Your future is full of success and happiness.",
     "Great things are coming into your life."
 ]
 
-traits_hi = [
-    "आकर्षक व्यक्तित्व",
-    "मजबूत और दृढ़ सोच",
-    "दयालु स्वभाव",
-    "आत्मविश्वासी और निडर",
-    "सकारात्मक ऊर्जा",
-    "लक्ष्य पर केंद्रित",
-    "विश्वसनीय और वफादार"
-]
-
-quotes_hi = [
-    "आप सफलता के लिए जन्मे हैं।",
-    "आपकी ऊर्जा सफलता को आकर्षित करती है।",
-    "आपका भविष्य उज्ज्वल है।",
-    "आपकी मेहनत रंग लाएगी।"
-]
-
-# ✅ ROOT ROUTE (No 404)
+# Root route
 @app.get("/")
 def home():
     return {"message": "NUMs + Kundali API is LIVE 🚀"}
 
-# ✅ HEALTH CHECK (Render)
+# Health route
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-# ✅ FIX FAVICON 404
+# Fix favicon 404
 @app.get("/favicon.ico")
 def favicon():
     return {"message": "No favicon"}
 
-# 🔮 KUNDALI API
-@app.get("/kundali")
-def kundali(
-    name: str,
-    dob: str = Query(..., description="DD-MM-YYYY"),
-    place: str = "India",
-    lang: str = "en"
-):
+# 🔥 MAIN KUNDALI ENDPOINT (FIXED COMPLETELY)
+@app.api_route("/kundali", methods=["GET","POST"])
+@app.api_route("//kundali", methods=["GET","POST"])  # accepts double slash
+async def kundali(request: Request,
+                  name: str = Query(None),
+                  dob: str = Query(None),
+                  place: str = Query("India")):
+
+    # ✅ If POST → read JSON body
+    if request.method == "POST":
+        data = await request.json()
+        name = data.get("name")
+        dob = data.get("dob")
+        place = data.get("place", "India")
+
+    # Validate input
+    if not name or not dob:
+        return {"error": "Send name and dob"}
+
     try:
         date_obj = datetime.strptime(dob, "%d-%m-%Y")
     except:
-        return {"error": "Use DOB format DD-MM-YYYY"}
+        return {"error": "DOB must be DD-MM-YYYY"}
 
     zodiac = get_zodiac(date_obj.day, date_obj.month)
-
-    if lang == "hi":
-        return {
-            "नाम": name,
-            "जन्म स्थान": place,
-            "राशि": zodiac,
-            "व्यक्तित्व": random.sample(traits_hi, 3),
-            "संदेश": random.choice(quotes_hi)
-        }
 
     return {
         "name": name,
         "place_of_birth": place,
         "zodiac_sign": zodiac,
-        "personality_traits": random.sample(traits_en, 3),
-        "message": random.choice(quotes_en)
+        "personality_traits": random.sample(traits, 3),
+        "message": random.choice(quotes)
     }
-
